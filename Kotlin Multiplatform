@@ -1,0 +1,296 @@
+/**
+ * You can edit, run, and share this code.
+ * play.kotlinlang.org
+ */
+
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlin.random.Random
+
+fun main() {
+    val simpler = SimpleR()
+    
+    println("Hello, world!!!")
+}
+
+
+class SimpleR {
+    private val primes = listOf<Long>(
+        10061,
+        10091,
+        10111,
+        10141,
+        10151,
+        10181,
+        10211,
+        10271,
+        10301,
+        10321,
+        10331,
+        10391,
+        10427,
+        10453,
+        10463,
+        10477,
+        10499,
+        10513,
+        10529,
+        10589,
+        10613,
+        10631,
+        10651,
+        10657,
+        10691,
+        10709,
+        10723,
+        10753,
+        10781,
+        10831
+    )
+
+    private val eList = listOf<Long>(
+        5,
+        29,
+        35,
+        13,
+        7
+    )
+
+    private val dList = listOf<Long>(
+        1596269,
+        41,
+        11,
+        37,
+        343
+    )
+
+    private val nList = listOf<Long>(
+        7990271,
+        133,
+        221,
+        77,
+        527
+    )
+
+    private var p: Long = primes.random()
+    private var q: Long = primes.random()
+    private var n: Long = p * q
+//    private val n: Long = 7990271
+    private var pieN: Long = (p - 1) * (q - 1)
+    private var e: Long = calculateE(pieN)
+//    private val e: Long = 5
+    private var d: Long = calculateD(e, pieN)
+//    private val d: Long = 1596269
+
+init{
+    var a=1
+     val listOfE: ArrayList<Long> = ArrayList()
+      val listOfD: ArrayList<Long> = ArrayList()
+       val listOfN: ArrayList<Long> = ArrayList()
+    while(a <= 1000) {
+        val message = "heythere"
+        p = primes.random()
+        q= primes.random()
+        n = p * q
+        pieN = (p - 1) * (q - 1)
+        e = calculateE(pieN)
+        d = calculateD(e, pieN)
+       
+       val encryptedText = encryptMessageOld(message)
+       val decryptedText = decryptMessageOld(encryptedText)
+       
+       if (message == decryptedText) {
+           listOfE.add(e)
+           listOfD.add(d)
+           listOfN.add(n)
+       }
+       a = a+1
+       
+    }
+    
+           println("E List, count - ${listOfE.count()}")
+
+    println(listOfE.joinToString(","))
+               println("D List, count - ${listOfD.count()}")
+
+        println(listOfD.joinToString(","))
+               println("N List, count - ${listOfN.count()}")
+
+            println(listOfN.joinToString(","))
+
+
+}
+
+    fun getPublicKey(): List<Long> {
+        return listOf(e, n)
+    }
+
+    fun getPrivateKey(): List<Long> {
+        return listOf(d, n)
+    }
+
+    suspend fun encryptMessage(
+        message: String, e: Long = this.e, n: Long = this.n, blockSize: Int = 1
+    ): List<Long> = coroutineScope {
+        message.chunked(blockSize).map { block ->
+            async {
+                val combinedValue = block.fold(0L) { acc, char ->
+                    acc * 256 + char.code.toLong()
+                }
+                combinedValue.modPow(e, n)
+            }
+        }.awaitAll()
+    }
+    
+    fun encryptMessageOld(message: String): List<Long> {
+        val encryptedMessage = mutableListOf<Long>()
+
+        for (char in message) {
+            val m = char.code.toLong()
+            val cipher = m.modPow(e, n)
+            encryptedMessage.add(cipher)
+        }
+        return encryptedMessage
+    }
+
+    suspend fun decryptMessage(
+        encryptedBlocks: List<Long>,
+        d: Long = this.d,
+        n: Long = this.n,
+        blockSize: Int = 1
+    ): String = coroutineScope {
+        encryptedBlocks.chunked(blockSize).map { blockChunk ->
+            async {
+                blockChunk.joinToString("") { encryptedBlock ->
+                    val decryptedValue = encryptedBlock.modPow(d, n)
+
+                    var value = decryptedValue
+                    val decodedBlock = StringBuilder()
+
+                    while (value > 0L) {
+                        val charCode = (value % 256).toInt()
+                        decodedBlock.insert(0, charCode.toChar())
+                        value /= 256
+                    }
+
+                    decodedBlock.toString()
+                }
+            }
+        }.awaitAll().joinToString("")
+    }
+
+    fun decryptMessageOld(encryptedMessage: List<Long>): String {
+        val decryptedMessage = StringBuilder()
+
+        for (cipher in encryptedMessage) {
+            val m = cipher.modPow(d, n)
+            decryptedMessage.append(m.toInt().toChar())
+        }
+
+        return decryptedMessage.toString()
+    }
+
+    private fun calculateEOld(phi: Long): Long {
+        val coPrimeList = mutableListOf<Long>()
+        var i = 1L
+
+        while (i < phi) {
+            if (gcdOld(phi, i) == 1L) {
+                coPrimeList.add(i)
+            }
+            i += 1L
+        }
+        val e = coPrimeList.random()
+        return e
+    }
+
+    private fun gcdOld(a: Long, b: Long): Long {
+        return if (b == 0L) a else gcdOld(b, a % b)
+    }
+
+
+    private fun calculateDOld(e: Long, phi: Long): Long {
+        var t = 0L
+        var newT = 1L
+        var r = phi
+        var newR = e
+
+        while (newR != 0L) {
+            val quotient = r / newR
+
+            val tempT = t
+            t = newT
+            newT = tempT - quotient * newT
+
+            val tempR = r
+            r = newR
+            newR = tempR - quotient * newR
+        }
+
+        if (r > 1L) throw Exception("e is not invertible")
+        if (t < 0L) t += phi
+
+        return t
+    }
+
+    private fun calculateE(phi: Long): Long {
+        var e: Long
+        do {
+            e = Random.nextLong(2, phi - 1)
+        } while (gcd(phi, e) != 1L)
+        return e
+    }
+
+    private fun gcd(a: Long, b: Long): Long {
+        var x = a
+        var y = b
+        while (y != 0L) {
+            val temp = y
+            y = x % y
+            x = temp
+        }
+        return x
+    }
+
+    private fun calculateD(e: Long, phi: Long): Long {
+        var t = 0L
+        var newT = 1L
+        var r = phi
+        var newR = e
+
+        while (newR != 0L) {
+            val quotient = r / newR
+
+            val tempT = t
+            t = newT
+            newT = tempT - quotient * newT
+
+            val tempR = r
+            r = newR
+            newR = tempR - quotient * newR
+        }
+
+        if (r > 1L) throw Exception("e is not invertible")
+        if (t < 0L) t += phi
+
+        return t
+    }
+}
+
+
+fun Long.modPow(exponent: Long, modulus: Long): Long {
+    var result = 1L
+    var base = this % modulus
+    var exp = exponent
+
+    while (exp > 0) {
+        if (exp % 2 == 1L) {
+            result = (result * base) % modulus
+        }
+        base = (base * base) % modulus
+        exp /= 2
+    }
+
+    return result
+}
